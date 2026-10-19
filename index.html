@@ -1,1 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Athens Street Histories</title>
 
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1D4E6B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Streets">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --paper: #EFE7D6;
+    --paper-dim: #E4DAC5;
+    --ink: #2B2620;
+    --ink-soft: #5A5347;
+    --enamel: #1D4E6B;
+    --enamel-dark: #143A50;
+    --enamel-text: #F5F2E9;
+    --brass: #9C7A44;
+    --roof: #B5602D;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Cormorant Garamond', serif;
+    overflow:hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app{
+    position:relative;
+    width:100%; height:100vh; height:100dvh;
+    display:flex; flex-direction:column;
+  }
+
+  header{
+    padding:16px 20px 10px;
+    background:var(--paper);
+    border-bottom:1px solid rgba(43,38,32,0.15);
+    flex-shrink:0;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+  }
+  header .titles h1{ margin:0; font-size:1.4rem; font-weight:600; letter-spacing:0.3px; }
+  header .titles p{ margin:2px 0 0; font-size:0.86rem; color:var(--ink-soft); font-style:italic; }
+  #sync-gear{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.3px;
+    color:var(--ink-soft);
+    background:none;
+    border:1px solid rgba(43,38,32,0.3);
+    border-radius:2px;
+    padding:6px 10px;
+    cursor:pointer;
+    flex-shrink:0;
+    white-space:nowrap;
+  }
+  #sync-gear:active{ background:rgba(43,38,32,0.08); }
+  #sync-gear.active{ border-color:var(--enamel); color:var(--enamel); }
+
+  .header-actions{ display:flex; gap:8px; flex-shrink:0; }
+  #exit-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.3px;
+    color:var(--ink-soft);
+    background:none;
+    border:1px solid rgba(43,38,32,0.3);
+    border-radius:2px;
+    padding:6px 10px;
+    cursor:pointer;
+    flex-shrink:0;
+    white-space:nowrap;
+  }
+  #exit-btn:active{ background:rgba(43,38,32,0.08); }
+
+  #exit-screen{
+    position:absolute; inset:0;
+    background:var(--paper);
+    z-index:700;
+    display:flex; flex-direction:column;
+    justify-content:center;
+    padding:28px 26px;
+  }
+  #exit-screen.hidden{ display:none; }
+  #exit-screen .plaque-mini{
+    align-self:flex-start;
+    background:linear-gradient(180deg, var(--enamel), var(--enamel-dark));
+    border:2px solid var(--brass);
+    color:var(--enamel-text);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:1.5px;
+    padding:5px 10px;
+    border-radius:2px;
+    margin-bottom:18px;
+  }
+  #exit-screen h2{ margin:0 0 10px; font-size:1.5rem; font-weight:600; }
+  #exit-screen p{ margin:0 0 16px; font-size:1.02rem; line-height:1.55; color:var(--ink-soft); }
+  #exit-screen button.go{
+    width:100%;
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600; font-style:italic; font-size:1.1rem;
+    padding:13px;
+    background:var(--enamel); color:var(--enamel-text);
+    border:none; border-radius:3px; cursor:pointer;
+  }
+  #exit-screen button.go:active{ background:var(--enamel-dark); }
+
+  #sync-gate{
+    position:absolute; inset:0;
+    background:var(--paper);
+    z-index:600;
+    display:flex; flex-direction:column;
+    padding:26px 24px;
+    overflow-y:auto;
+  }
+  #sync-gate.hidden{ display:none; }
+  #sync-gate .plaque-mini{
+    align-self:flex-start;
+    background:linear-gradient(180deg, var(--enamel), var(--enamel-dark));
+    border:2px solid var(--brass);
+    color:var(--enamel-text);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:1.5px;
+    padding:5px 10px;
+    border-radius:2px;
+    margin-bottom:16px;
+  }
+  #sync-gate h2{ margin:0 0 8px; font-size:1.45rem; font-weight:600; }
+  #sync-gate p{ margin:0 0 14px; font-size:0.98rem; line-height:1.5; color:var(--ink-soft); }
+  #sync-gate a{ color:var(--enamel); }
+  #sync-gate ol{ font-size:0.94rem; line-height:1.55; color:var(--ink-soft); padding-left:20px; margin:0 0 16px; }
+  #sync-gate textarea, #sync-gate input{
+    width:100%;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    padding:11px 13px;
+    border:1px solid rgba(43,38,32,0.35);
+    border-radius:3px;
+    background:#fff;
+    color:var(--ink);
+    margin-bottom:10px;
+    box-sizing:border-box;
+  }
+  #sync-gate textarea{ min-height:90px; resize:vertical; }
+  #sync-gate button.go{
+    width:100%;
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600; font-style:italic; font-size:1.05rem;
+    padding:12px;
+    background:var(--enamel); color:var(--enamel-text);
+    border:none; border-radius:3px; cursor:pointer;
+    margin-bottom:10px;
+  }
+  #sync-gate button.go:active{ background:var(--enamel-dark); }
+  #sync-gate .skip-btn{
+    background:none; border:none;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    text-decoration:underline;
+    cursor:pointer;
+    padding:6px 0;
+  }
+  #sync-gate .gate-error{
+    color:#8a3324; font-size:0.9rem; margin:-2px 0 12px; display:none;
+  }
+
+  #map-wrap{ position:relative; flex:1; min-height:0; background:var(--paper-dim); }
+  #map{ width:100%; height:100%; background:var(--paper-dim); }
+
+  /* mute the OSM tiles toward the parchment palette */
+  .leaflet-tile-pane{
+    filter: sepia(0.35) saturate(0.55) brightness(1.08) contrast(0.92) hue-rotate(-6deg);
+  }
+  .leaflet-control-attribution{
+    font-family:'IBM Plex Mono', monospace !important;
+    font-size:9.5px !important;
+    background:rgba(239,231,214,0.85) !important;
+  }
+  .leaflet-control-zoom a{
+    color: var(--ink) !important;
+  }
+
+  #hint{
+    position:absolute;
+    bottom:14px; left:50%;
+    transform:translateX(-50%);
+    background:rgba(43,38,32,0.85);
+    color:var(--enamel-text);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    padding:7px 14px;
+    border-radius:3px;
+    letter-spacing:0.4px;
+    pointer-events:none;
+    transition:opacity 0.4s ease;
+    z-index:400;
+    white-space:nowrap;
+  }
+
+  #sheet{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    height:0;
+    background:var(--paper);
+    border-top:2px solid var(--brass);
+    box-shadow: 0 -6px 24px rgba(0,0,0,0.25);
+    transition: height 0.32s cubic-bezier(.2,.8,.3,1);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    z-index:500;
+  }
+  #sheet.open{ height:55%; }
+
+  #sheet-drag{
+    flex-shrink:0;
+    display:flex; justify-content:center; align-items:center;
+    padding:8px 0 4px;
+    cursor:pointer;
+  }
+  #sheet-drag span{ width:36px; height:4px; border-radius:2px; background:rgba(43,38,32,0.25); }
+
+  .plaque{
+    position:relative;
+    flex-shrink:0;
+    margin:2px 16px 12px;
+    background: linear-gradient(180deg, var(--enamel) 0%, var(--enamel-dark) 100%);
+    border:3px solid var(--brass);
+    border-radius:2px;
+    padding:14px 16px 12px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 3px 10px rgba(0,0,0,0.25);
+  }
+  .plaque-close{
+    position:absolute;
+    top:8px; right:8px;
+    width:30px; height:30px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(245,242,233,0.12);
+    border:1px solid rgba(245,242,233,0.4);
+    border-radius:50%;
+    color:var(--enamel-text);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:15px;
+    line-height:1;
+    cursor:pointer;
+  }
+  .plaque-close:active{ background:rgba(245,242,233,0.28); }
+  .plaque .odos{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px; letter-spacing:2px;
+    color:var(--enamel-text); opacity:0.75; margin:0 0 3px;
+  }
+  .plaque .name{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600; font-style:italic; font-size:1.6rem;
+    color:var(--enamel-text); margin:0; line-height:1.15;
+  }
+  .plaque .named-after{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.4px;
+    color:var(--enamel-text);
+    opacity:0.85;
+    margin:8px 0 0;
+    padding-top:8px;
+    border-top:1px solid rgba(245,242,233,0.25);
+    display:none;
+  }
+
+  #sheet-body{ flex:1; overflow-y:auto; padding:2px 22px 28px; -webkit-overflow-scrolling:touch; }
+  #sheet-body p{ font-size:1.06rem; line-height:1.55; color:var(--ink); margin:0 0 14px; }
+
+  .result-block{
+    margin-bottom:16px;
+    padding-bottom:14px;
+    border-bottom:1px dashed rgba(43,38,32,0.22);
+  }
+  .result-block:last-of-type{ border-bottom:none; padding-bottom:2px; }
+  .source-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    letter-spacing:1px;
+    color:var(--brass);
+    text-transform:uppercase;
+    font-weight:600;
+    margin:0 0 6px;
+  }
+  .source-tag a{ color:inherit; }
+
+  #sheet-body .note{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-soft);
+    border-top:1px solid rgba(43,38,32,0.15); padding-top:10px; margin-top:6px; letter-spacing:0.2px;
+  }
+
+  /* English label overlay (drawn from Overpass name:en data) */
+  .en-label-wrap{ pointer-events:none; }
+  .en-label{
+    background:rgba(239,231,214,0.88);
+    border:1px solid rgba(43,38,32,0.35);
+    border-radius:2px;
+    color:#2B2620;
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600;
+    font-size:11px;
+    line-height:1.2;
+    padding:0 4px;
+    white-space:nowrap;
+    box-shadow:0 1px 2px rgba(0,0,0,0.2);
+  }
+
+  /* tiny English-label fetch status (diagnostic) */
+  #label-status{
+    position:absolute; bottom:24px; left:8px; z-index:450;
+    font-family:'IBM Plex Mono', monospace; font-size:9.5px;
+    color:#5A5347; background:rgba(239,231,214,0.9);
+    padding:2px 6px; border-radius:2px; pointer-events:none;
+  }
+
+  .loading{ display:flex; align-items:center; gap:10px; color:var(--ink-soft); font-style:italic; font-size:1.05rem; padding-top:6px; }
+  .spinner{
+    width:16px; height:16px; border:2px solid rgba(43,38,32,0.2); border-top-color:var(--enamel);
+    border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .error-box{ color:#8a3324; font-size:1rem; font-style:italic; }
+  .retry-btn{
+    margin-top:10px; font-family:'IBM Plex Mono', monospace; font-size:11px;
+    background:none; border:1px solid var(--ink); color:var(--ink);
+    padding:7px 14px; border-radius:2px; cursor:pointer; letter-spacing:0.3px;
+  }
+  .retry-btn:active{ background:rgba(43,38,32,0.08); }
+
+  .user-note-section{
+    margin-top:18px;
+    padding-top:14px;
+    border-top:1px dashed rgba(43,38,32,0.28);
+  }
+  .note-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:1.5px;
+    color:var(--ink-soft);
+    margin:0 0 8px;
+  }
+  .user-note-section textarea{
+    width:100%;
+    min-height:80px;
+    font-family:'Cormorant Garamond', serif;
+    font-size:1rem;
+    line-height:1.4;
+    padding:10px 12px;
+    border:1px solid rgba(43,38,32,0.3);
+    border-radius:3px;
+    background:#fff;
+    color:var(--ink);
+    resize:vertical;
+    box-sizing:border-box;
+  }
+  .note-actions{
+    display:flex; align-items:center; gap:12px;
+    margin-top:8px;
+  }
+  .save-note-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    background:var(--enamel);
+    color:var(--enamel-text);
+    border:none;
+    padding:8px 16px;
+    border-radius:2px;
+    cursor:pointer;
+    letter-spacing:0.3px;
+  }
+  .save-note-btn:active{ background:var(--enamel-dark); }
+  .save-confirm{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="titles">
+      <h1>Athens Street Names</h1>
+      <p>Tap any street for its story · <b id="build-tag">EN build 3.2 slim</b></p>
+    </div>
+    <div class="header-actions">
+      <button id="locate-btn" onclick="goToMyLocation()">&#9678;</button>
+      <button id="en-toggle" onclick="toggleEnLabels()">EN ✓</button>
+      <button id="sync-gear" onclick="showSyncGate()">SYNC</button>
+      <button id="exit-btn" onclick="attemptExit()">EXIT</button>
+    </div>
+  </header>
+
+  <div id="sync-gate" class="hidden">
+    <div class="plaque-mini">SYNC SETUP</div>
+    <h2>Sync notes across devices</h2>
+    <p>Your notes always save on this device first. To also see them on your other phones or tablets, connect a free Firebase project (Google's app backend — the free plan needs no credit card) and pick a private sync code to enter on each device.</p>
+    <ol>
+      <li>Go to the <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a> and create a project</li>
+      <li>Build → <b>Firestore Database</b> → Create database (production mode, any region)</li>
+      <li>Build → <b>Authentication</b> → Sign-in method → enable <b>Anonymous</b></li>
+      <li>Project settings → General → "Your apps" → add a <b>Web app</b> → copy the <code>firebaseConfig</code> object shown</li>
+    </ol>
+    <textarea id="firebase-config-input" placeholder="Paste the whole firebaseConfig { ... } object here"></textarea>
+    <input id="sync-code-input" type="text" placeholder="Choose a private sync code (only you should know it)" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button class="go" onclick="submitSyncConfig()">Connect &amp; Sync</button>
+    <p id="sync-gate-error" class="gate-error"></p>
+    <button class="skip-btn" onclick="hideSyncGate()">Not now — keep notes on this device only</button>
+  </div>
+
+  <div id="exit-screen" class="hidden">
+    <div class="plaque-mini">GOODBYE</div>
+    <h2>Ready to close?</h2>
+    <p>Mobile browsers don't let a web page close itself — that's a security rule Chrome and Safari both enforce for every site, not something specific to this app.</p>
+    <p>To fully exit, open your phone's recent apps (swipe up and hold, or tap the recents/square button) and swipe Athens Street Names away, the same way you'd close any other app.</p>
+    <button class="go" onclick="hideExitScreen()">Back to the map</button>
+  </div>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="hint">TAP A STREET</div>
+    <div id="label-status"></div>
+  </div>
+
+  <div id="sheet">
+    <div id="sheet-drag" onclick="closeSheet()"><span></span></div>
+    <div class="plaque">
+      <button class="plaque-close" onclick="closeSheet()" aria-label="Close">✕</button>
+      <p class="odos">STREET</p>
+      <p class="name" id="plaque-name">—</p>
+      <p class="named-after" id="plaque-namedafter"></p>
+    </div>
+    <div id="sheet-body"></div>
+  </div>
+
+</div>
+
+<script>
+  // On-screen error reporter: any JS failure prints in plain text at the top
+  // of the screen, so problems are diagnosable without a computer.
+  window.__errBox = function(msg, cls){
+    var box = document.getElementById('err-box');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'err-box';
+      box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#8a3324;color:#fff;font:12px monospace;padding:8px 10px;white-space:pre-wrap;max-height:40%;overflow-y:auto;';
+      document.body.appendChild(box);
+    }
+    var line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    box.appendChild(line);
+    return line;
+  };
+  window.addEventListener('error', function(e){
+    window.__errBox('JS ERROR: ' + e.message + ' @ ' + String(e.filename||'').split('/').pop() + ':' + e.lineno);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var r = e.reason && (e.reason.message || e.reason);
+    window.__errBox('ASYNC ERROR: ' + r);
+  });
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+  const sheet = document.getElementById('sheet');
+  const sheetBody = document.getElementById('sheet-body');
+  const plaqueName = document.getElementById('plaque-name');
+  const hint = document.getElementById('hint');
+  const cache = {};
+  let currentStreet = null;
+  let currentLatlng = null;
+  let currentGreekName = null;
+  let marker = null;
+
+  const ATHENS_CENTER = [37.9755, 23.7348]; // Monastiraki / Plaka area
+
+  if (typeof L === 'undefined') {
+    (window.__errBox || alert)('Map library failed to load. This app needs an internet connection when first opened (Leaflet loads from cdnjs.cloudflare.com). Check your connection or any ad-blocker/VPN/DNS filter, then reload the page.');
+    throw new Error('Leaflet not loaded');
+  }
+
+  const map = L.map('map', {
+    zoomControl: true,
+    attributionControl: true
+  }).setView(ATHENS_CENTER, 17);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  map.on('click', onMapClick);
+
+  // Bottom-pill status text (used by labels + location features)
+  function setLabelHint(msg){
+    if (!hint) return;
+    hint.textContent = msg;
+    hint.style.opacity = '1';
+  }
+
+  function labelStatus(msg){
+    const el = document.getElementById('label-status');
+    if (el) el.textContent = msg;
+  }
+
+  // ---- Live user position ----
+  // Header ◎ button: locate via GPS and follow live until the user drags.
+  let userMarker = null, followUser = false;
+
+  map.on('locationfound', (e) => {
+    if (!userMarker){
+      userMarker = L.circleMarker(e.latlng, {
+        radius: 8, color: '#143A50', weight: 2,
+        fillColor: '#3B82C4', fillOpacity: 0.95
+      }).addTo(map);
+    } else {
+      userMarker.setLatLng(e.latlng);
+    }
+    if (followUser) map.setView(e.latlng, Math.max(map.getZoom(), 16));
+  });
+  map.on('locationerror', (e) => {
+        if (window.__errBox) window.__errBox('Location unavailable — ' + e.message + ' (GPS on? permission granted?)', 'tile-warn');
+  });
+  map.on('dragstart', () => {
+    if (followUser){ followUser = false; map.stopLocate(); }
+  });
+
+  function goToMyLocation(){
+    followUser = true;
+    if (window.__errBox){ document.querySelectorAll('.tile-warn').forEach(n => n.remove()); }
+    setLabelHint('Finding your position\u2026');
+    map.locate({ setView: false, enableHighAccuracy: true, watch: true });
+  }
+  window.goToMyLocation = goToMyLocation;
+  // Start live positioning automatically when the app opens: blue dot on
+  // the user, map following, updates as they move until they drag.
+  setTimeout(goToMyLocation, 1200);
+
+  // ---- English street-name overlay ----
+  // Both English-label tile providers are unreachable on some networks, so
+  // English names are fetched as DATA from Overpass (usually reachable) and
+  // drawn as labels over whichever base map loaded. Auto-refreshes after
+  // pan/zoom; needs zoom 15+; toggle with the EN button in the header.
+  let enLabelsOn = true;
+  const enLabelLayer = L.layerGroup().addTo(map);
+  let enLabelReq = 0, enLabelTimer = null;
+  const enLabelSeen = new Set();
+
+  // Nominatim-based English labels: reverse-geocode a 3x3 grid across the
+  // viewport. Nominatim enforces 1 req/second, so the grid paces itself
+  // (~10s for 9 points). This is the primary source because Nominatim has
+  // proven reachable on networks where every Overpass mirror fails.
+  async function nominatimGridLabels(bbox, isStale){
+    const parts = bbox.split(',').map(Number);
+    const s = parts[0], w = parts[1], n = parts[2], e = parts[3];
+    const N = 3;
+    const found = new Map(); // English name -> [lat, lon]
+    let okCount = 0, failCount = 0, firstErr = '';
+    for (let i = 0; i < N; i++){
+      for (let j = 0; j < N; j++){
+        if (isStale && isStale()) return [];
+        const lat = s + (n - s) * (i + 0.5) / N;
+        const lon = w + (e - w) * (j + 0.5) / N;
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}&zoom=17&namedetails=1`, { headers: { 'Accept-Language': 'en' } });
+          if (r.ok){
+            okCount++;
+            const d = await r.json();
+            const en = d.namedetails && d.namedetails['name:en'];
+            if (en && !found.has(en)) found.set(en, [lat, lon]);
+          } else {
+            failCount++;
+            if (!firstErr) firstErr = 'HTTP ' + r.status;
+          }
+        } catch (e) {
+          failCount++;
+          if (!firstErr) firstErr = (e && e.message) || 'network error';
+        }
+        labelStatus('en-labels: pt ' + (i * N + j + 1) + '/' + (N * N) + ' \u00b7 ' + found.size + ' names \u00b7 ' + failCount + ' failed');
+        await new Promise(res => setTimeout(res, 1100)); // Nominatim policy: 1 req/s
+      }
+    }
+    const elements = [];
+    found.forEach((pos, name) => elements.push({ tags: { 'name:en': name }, center: { lat: pos[0], lon: pos[1] } }));
+    if (!elements.length && failCount === N * N){
+      labelStatus('en-labels: ALL failed \u2014 ' + firstErr);
+    } else {
+      labelStatus('en-labels: ' + elements.length + ' names (' + okCount + '/' + (N * N) + ' pts ok)');
+    }
+    return elements;
+  }
+
+  async function refreshEnLabels(){
+    if (!enLabelsOn || map.getZoom() < 15){
+      enLabelLayer.clearLayers();
+      enLabelSeen.clear();
+      return;
+    }
+    setLabelHint('English labels: loading\u2026');
+    const b = map.getBounds();
+    const bbox = `${b.getSouth().toFixed(5)},${b.getWest().toFixed(5)},${b.getNorth().toFixed(5)},${b.getEast().toFixed(5)}`;
+    const req = ++enLabelReq;
+    let els = null;
+    try {
+      els = await nominatimGridLabels(bbox, () => req !== enLabelReq);
+    } catch (e) { els = null; }
+    if (!els) els = [];
+    try {
+      const withEn = els.filter(e => e.tags && e.tags['name:en']).length;
+            setLabelHint('English labels: ' + withEn + ' loaded');
+      enLabelLayer.clearLayers();
+      enLabelSeen.clear();
+      let count = 0;
+      for (const el of els){
+        if (count >= 200) break;
+        const t = el.tags || {};
+        const en = t['name:en'];
+        if (!en || !el.center) continue;
+        // one label per (name, ~1km cell) so segmented streets don't repeat
+        const key = en + '|' + el.center.lat.toFixed(2) + '|' + el.center.lon.toFixed(2);
+        if (enLabelSeen.has(key)) continue;
+        enLabelSeen.add(key);
+        const icon = L.divIcon({
+          className: 'en-label-wrap',
+          html: '<div class="en-label">' + escapeHtml(en) + '</div>',
+          iconSize: [0, 0],
+          iconAnchor: [0, 0]
+        });
+        L.marker([el.center.lat, el.center.lon], { icon: icon, interactive: false, keyboard: false }).addTo(enLabelLayer);
+        count++;
+      }
+    } catch (e) {
+            setLabelHint('English labels: FAILED (see DBG)');
+    }
+      }
+
+  function scheduleEnLabels(){
+    clearTimeout(enLabelTimer);
+    enLabelTimer = setTimeout(refreshEnLabels, 1500);
+  }
+  map.on('moveend', scheduleEnLabels);
+  map.on('zoomend', scheduleEnLabels);
+
+  function toggleEnLabels(){
+    enLabelsOn = !enLabelsOn;
+    const btn = document.getElementById('en-toggle');
+    if (btn) btn.textContent = enLabelsOn ? 'EN ✓' : 'EN ✕';
+    if (enLabelsOn) refreshEnLabels();
+    else { enLabelLayer.clearLayers(); enLabelSeen.clear(); labelStatus(''); }
+  }
+
+  setTimeout(refreshEnLabels, 1500); // initial paint shortly after load
+
+  async function onMapClick(e){
+    const { lat, lng } = e.latlng;
+
+    if (marker) map.removeLayer(marker);
+    marker = L.circleMarker([lat, lng], {
+      radius: 7,
+      color: '#2B2620',
+      weight: 1.5,
+      fillColor: '#B5602D',
+      fillOpacity: 1
+    }).addTo(map);
+
+    hint.textContent = 'LOCATING STREET…';
+    hint.style.opacity = '1';
+
+    try {
+      // One Nominatim request per tap (policy: 1 req/s). namedetails carries
+      // both the Greek name tag and the English one (name:en).
+      const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&namedetails=1`;
+
+      const enRes = await fetch(nominatimUrl, { headers: { 'Accept-Language': 'en' } });
+      if (!enRes.ok) throw new Error('reverse geocode failed');
+      const data = await enRes.json();
+
+      const elData = null;
+
+      // Prefer the English name tag (namedetails) even when Nominatim's
+      // language preference returns a Greek display name — keeps the plaque
+      // and the English Wikipedia lookups in English.
+      const streetFromAddress = data.address && (data.address.road || data.address.pedestrian || data.address.footway);
+      const streetName = (data.namedetails && data.namedetails['name:en']) || streetFromAddress;
+      const greekStreetName = (elData && elData.address &&
+        (elData.address.road || elData.address.pedestrian || elData.address.footway)) ||
+        (data.namedetails && data.namedetails['name']) || streetFromAddress;
+
+            if (!streetName) {
+        hint.textContent = 'NO STREET FOUND — TRY AGAIN';
+        setTimeout(() => { hint.style.opacity = '0'; }, 1800);
+        return;
+      }
+
+      hint.style.opacity = '0';
+      recenterAboveSheet(e.latlng);
+      onStreetFound(streetName, e.latlng, greekStreetName);
+
+    } catch (err) {
+      hint.textContent = 'COULD NOT LOCATE — TRY AGAIN';
+      setTimeout(() => { hint.style.opacity = '0'; }, 1800);
+    }
+  }
+
+  // The open sheet covers the bottom ~60% of the map. Without this, a tap
+  // on a street hidden under that area silently does nothing. So on every
+  // valid tap, nudge the map up so the point lands in the visible strip.
+  function recenterAboveSheet(latlng){
+    const mapSize = map.getSize();
+    const visibleHeight = mapSize.y * 0.40; // strip left uncovered by the open sheet
+    const desiredY = visibleHeight * 0.5;
+    const currentPoint = map.latLngToContainerPoint(latlng);
+    const dy = currentPoint.y - desiredY;
+    if (Math.abs(dy) > 8) {
+      map.panBy([0, dy], { animate: true, duration: 0.3 });
+    }
+  }
+
+  function onStreetFound(name, latlng, greekName){
+    currentStreet = name;
+    currentLatlng = latlng;
+    currentGreekName = greekName;
+    plaqueName.textContent = name;
+    document.getElementById('plaque-namedafter').style.display = 'none';
+    sheet.classList.add('open');
+
+    if (cache[name]) {
+      renderHistory(cache[name]);
+    } else {
+      fetchHistory(name, latlng, greekName);
+    }
+  }
+
+  function closeSheet(){ sheet.classList.remove('open'); }
+
+  function renderLoading(){
+    sheetBody.innerHTML = `
+      <div class="loading">
+        <div class="spinner"></div>
+        <span>Checking the archives…</span>
+      </div>`;
+  }
+
+  // Personal notes: always saved on-device (localStorage) first, so they work
+  // immediately and offline. If a Firebase project + sync code have been
+  // connected (see the SYNC button), notes are also mirrored to Firestore
+  // under that code, so the same code on another device pulls them back down.
+  // Note: local storage is disabled inside Claude's own in-chat preview
+  // sandbox — this all works once the app is actually deployed and opened
+  // as a real page.
+  const NOTE_PREFIX = 'odoi_note_';
+  let firebaseApp = null, db = null, auth = null, syncReady = false, syncCode = null;
+
+  function getUserNote(streetName){
+    try { return localStorage.getItem(NOTE_PREFIX + streetName.trim().toLowerCase()) || ''; }
+    catch (e) { return ''; }
+  }
+
+  function saveUserNote(streetName, text){
+    const key = streetName.trim().toLowerCase();
+    try {
+      if (text.trim()) localStorage.setItem(NOTE_PREFIX + key, text.trim());
+      else localStorage.removeItem(NOTE_PREFIX + key);
+    } catch (e) { return false; }
+
+    if (syncReady) {
+      const docRef = db.collection('odoiNotes').doc(syncCode).collection('streets').doc(key);
+      if (text.trim()) {
+        docRef.set({ text: text.trim(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+      } else {
+        docRef.delete().catch(() => {});
+      }
+    }
+    return true;
+  }
+
+  // After showing whatever's saved locally, quietly check the cloud copy in
+  // the background and update the textarea if another device has a newer note.
+  async function syncNoteFromCloud(streetName){
+    if (!syncReady) return;
+    try {
+      const key = streetName.trim().toLowerCase();
+      const doc = await db.collection('odoiNotes').doc(syncCode).collection('streets').doc(key).get();
+      if (!doc.exists) return;
+      const cloudText = (doc.data() || {}).text || '';
+      const localText = getUserNote(streetName);
+      if (cloudText && cloudText !== localText) {
+        // Don't clobber unsaved edits: if the user is currently viewing this
+        // street and the textarea doesn't match the last saved local text,
+        // they've typed something they haven't saved yet — leave it alone.
+        const ta = currentStreet === streetName ? document.getElementById('user-note-input') : null;
+        if (ta && ta.value !== localText) return;
+        localStorage.setItem(NOTE_PREFIX + key, cloudText);
+        if (ta) {
+          ta.value = cloudText;
+          const el = document.getElementById('save-confirm');
+          if (el) { el.textContent = 'Synced from another device'; setTimeout(() => { el.textContent = ''; }, 2500); }
+        }
+      }
+    } catch (e) { /* cloud sync failed silently; local copy still works fine */ }
+  }
+
+  function saveNote(){
+    const val = document.getElementById('user-note-input').value;
+    const ok = saveUserNote(currentStreet, val);
+    const el = document.getElementById('save-confirm');
+    el.textContent = ok ? (val.trim() ? (syncReady ? 'Saved & synced ✓' : 'Saved ✓') : 'Cleared') : 'Could not save — storage unavailable here';
+    setTimeout(() => { el.textContent = ''; }, 2000);
+  }
+
+  function noteEditorHtml(streetName){
+    const saved = getUserNote(streetName);
+    return `
+      <div class="user-note-section">
+        <p class="note-label">YOUR NOTES${syncReady ? ' — SYNCED' : ''}</p>
+        <textarea id="user-note-input" placeholder="Know something about this street? Add it here.">${escapeHtml(saved)}</textarea>
+        <div class="note-actions">
+          <button class="save-note-btn" onclick="saveNote()">SAVE</button>
+          <span id="save-confirm" class="save-confirm"></span>
+        </div>
+      </div>`;
+  }
+
+  // ---- Firebase sync setup ----
+  function showSyncGate(){ document.getElementById('sync-gate').classList.remove('hidden'); }
+
+  function attemptExit(){
+    try { window.close(); } catch (e) { /* blocked by browser, expected */ }
+    // window.close() is silently ignored (not an error) on pages the browser
+    // didn't itself open via script — which is true for every normal visit
+    // and every installed PWA — so we always fall through to the explanation.
+    showExitScreen();
+  }
+  function showExitScreen(){ document.getElementById('exit-screen').classList.remove('hidden'); }
+  function hideExitScreen(){ document.getElementById('exit-screen').classList.add('hidden'); }
+  function hideSyncGate(){ document.getElementById('sync-gate').classList.add('hidden'); }
+
+  function setGearLabel(){
+    const gear = document.getElementById('sync-gear');
+    gear.textContent = syncReady ? 'SYNCED ✓' : 'SYNC';
+    gear.classList.toggle('active', syncReady);
+  }
+
+  function parseFirebaseConfig(raw){
+    try { return JSON.parse(raw); } catch (e) {}
+    try {
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (!match) return null;
+      return new Function('return (' + match[0] + ')')();
+    } catch (e) { return null; }
+  }
+
+  async function initFirebaseSync(config){
+    // Reuse an existing default app — calling initializeApp twice throws
+    // "app already exists" (e.g. auto-init succeeded, then the user
+    // re-submits the SYNC form).
+    firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    await auth.signInAnonymously();
+  }
+
+  async function submitSyncConfig(){
+    const raw = document.getElementById('firebase-config-input').value.trim();
+    const code = document.getElementById('sync-code-input').value.trim();
+    const errEl = document.getElementById('sync-gate-error');
+    errEl.style.display = 'none';
+
+    const config = parseFirebaseConfig(raw);
+    if (!config || !config.apiKey || !config.projectId) {
+      errEl.textContent = "Couldn't read that config — make sure you pasted the whole firebaseConfig object.";
+      errEl.style.display = 'block';
+      return;
+    }
+    if (!code) {
+      errEl.textContent = 'Choose a sync code first — this is what links your devices together.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    try {
+      await initFirebaseSync(config);
+      localStorage.setItem('odoi_firebase_config', JSON.stringify(config));
+      localStorage.setItem('odoi_sync_code', code);
+      syncCode = code;
+      syncReady = true;
+      setGearLabel();
+      hideSyncGate();
+      if (currentStreet) {
+        const ta = document.getElementById('user-note-input');
+        if (ta) syncNoteFromCloud(currentStreet);
+      }
+    } catch (e) {
+      errEl.textContent = 'Could not connect — double check Firestore and Anonymous sign-in are both enabled in your Firebase project.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  (async function tryAutoInitSync(){
+    try {
+      const savedConfig = localStorage.getItem('odoi_firebase_config');
+      const savedCode = localStorage.getItem('odoi_sync_code');
+      if (savedConfig && savedCode) {
+        await initFirebaseSync(JSON.parse(savedConfig));
+        syncCode = savedCode;
+        syncReady = true;
+      }
+    } catch (e) { /* stays in local-only mode */ }
+    setGearLabel();
+  })();
+
+  function sourceLabel(result){
+    switch (result.source) {
+      case 'curated': return 'CURATED SUMMARY';
+      case 'osm-wikidata': return 'OPENSTREETMAP + WIKIDATA';
+      case 'osm': return 'OPENSTREETMAP CONTRIBUTORS';
+      case 'wikipedia': return 'WIKIPEDIA (ENGLISH)';
+      case 'wikipedia-el': return 'GREEK WIKIPEDIA / ΒΙΚΙΠΑΙΔΕΙΑ';
+      default: return 'SOURCE';
+    }
+  }
+
+  function renderResultBlock(result){
+    const paragraphs = result.text.split(/\n+/).filter(p => p.trim().length);
+    const isWiki = result.source === 'wikipedia' || result.source === 'wikipedia-el';
+    const cc = isWiki ? ' (CC BY-SA 4.0)' : '';
+    const titleTag = (isWiki && result.title) ? ` — "${escapeHtml(result.title)}"` : '';
+    const link = result.url ? ` — <a href="${result.url}" target="_blank" style="color:inherit;">view source</a>` : '';
+    const translateLink = (result.source === 'wikipedia-el' && result.url)
+      ? ` — <a href="https://translate.google.com/translate?sl=el&tl=en&u=${encodeURIComponent(result.url)}" target="_blank" style="color:inherit;">translate to English</a>`
+      : '';
+    return `
+      <div class="result-block">
+        <p class="source-tag">${sourceLabel(result)}${titleTag}${cc}${link}${translateLink}</p>
+        ${paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('')}
+      </div>`;
+  }
+
+  // results is an array — every source that returned something is shown,
+  // not just the first hit, so you can compare/cross-check them yourself.
+  function renderHistory(results){
+    const namedAfterEl = document.getElementById('plaque-namedafter');
+    const withNamedAfter = results.find(r => r.namedAfter);
+    if (withNamedAfter) {
+      namedAfterEl.textContent = `NAMED AFTER — ${withNamedAfter.namedAfter}`;
+      namedAfterEl.style.display = 'block';
+    } else {
+      namedAfterEl.style.display = 'none';
+    }
+
+    const body = results.length
+      ? results.map(renderResultBlock).join('')
+      : `<p>No recorded history was found for ${escapeHtml(currentStreet)} — checked the curated list, OpenStreetMap's naming records, Greek Wikipedia, and English Wikipedia. Most small residential streets in Athens simply were never documented this way. If you happen to know its origin, add it below.</p>`;
+
+    sheetBody.innerHTML = body + noteEditorHtml(currentStreet);
+    syncNoteFromCloud(currentStreet);
+  }
+
+  function renderError(){
+    sheetBody.innerHTML = `
+      <p class="error-box">Couldn't reach the archives just now.</p>
+      <button class="retry-btn" onclick="fetchHistory('${currentStreet.replace(/'/g,"\\'")}', currentLatlng, currentGreekName)">TRY AGAIN</button>`;
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // A small hand-written set of well-documented central Athens streets,
+  // used before falling back to live Wikipedia lookups. No key, no server,
+  // no cost — everything below runs entirely in the browser.
+  const CURATED = {
+    "ermou": { namedAfter: "Hermes, Greek god of trade", text:
+      "Ermou is named after Hermes, the Greek god of trade, travel, and communication — a fitting patron for what has been central Athens' main commercial street since the 19th century. It runs in a straight line from Syntagma Square down toward Monastiraki and Thissio.\n\nThe street was laid out as part of the neoclassical redesign of Athens after the city became the capital of modern Greece in 1834, when planners cut a new grid of avenues radiating from Syntagma. Ermou quickly became the address for shops and merchants, a role it has kept for close to two centuries, today as one of the busiest pedestrian shopping streets in Greece." },
+    "panepistimiou": { namedAfter: "the University of Athens", text:
+      "Panepistimiou takes its name from the University of Athens (Panepistimio), whose grand 19th-century building sits along the street. It's officially named Eleftheriou Venizelou Street after the early-20th-century Greek statesman, but almost everyone in Athens still calls it by the older, more familiar name.\n\nThe street forms part of the 'neoclassical trilogy' stretch, lined with the University, the Academy of Athens, and the National Library, all built in the mid-to-late 1800s as Greece assembled the civic architecture of a modern capital." },
+    "stadiou": { namedAfter: "the Panathenaic Stadium", text:
+      "Stadiou Street takes its name from the Panathenaic Stadium (Kallimarmaro), the ancient marble stadium that the street points toward at its southeastern end. The stadium itself dates back to antiquity and was rebuilt in the 1890s to host the first modern Olympic Games in 1896.\n\nOnce one of Athens' most fashionable 19th and early 20th century boulevards, lined with grand arcades and cinemas, Stadiou has seen its commercial fortunes shift over the decades, though it remains a major artery connecting Syntagma and Omonia squares." },
+    "athinas": { namedAfter: "Athens itself", text:
+      "Athinas Street is simply named after Athens itself (Athina in Greek), running as a direct line between two of the city's most historic squares, Omonia and Monastiraki. It has long served as a working commercial spine of the city.\n\nThe street is best known as home to the Athens Central Market (Varvakios Agora), a 19th-century meat, fish, and produce market that still operates today, giving Athinas a rougher, more workaday character than the boutique-lined streets nearby." },
+    "aiolou": { namedAfter: "Aeolus, god of the winds", text:
+      "Aiolou is named after Aeolus, the Greek god of the winds, and the street's path was deliberately aligned toward the Tower of the Winds (Aerides), an octagonal ancient Greek marble structure in the Roman Agora that itself tracked wind direction and time.\n\nIt's one of the streets laid out in the original 1830s plan for the new capital, connecting Omonia Square down toward the ancient Agora — a rare case of a modern street name and route both pointing directly at an ancient monument." },
+    "adrianou": { namedAfter: "Roman Emperor Hadrian", text:
+      "Adrianou Street is named after the Roman emperor Hadrian, who invested heavily in Athens in the 2nd century AD, including the nearby arch that still bears his name. Running through the Plaka and Monastiraki neighborhoods along the northern edge of the ancient Agora and Acropolis, it's often described as the oldest continuously used street in Athens, tracing a route that has existed since antiquity.\n\nToday it's lined with cafés, tavernas, and souvenir shops, but its layout still roughly follows the ancient path it's named for." },
+    "mitropoleos": { namedAfter: "the Metropolitan Cathedral of Athens", text:
+      "Mitropoleos Street takes its name from the Metropolitan Cathedral of Athens (Mitropoli), the city's main Orthodox cathedral, which the street leads to. The cathedral was built in the mid-19th century, partly using material from dozens of smaller demolished Byzantine churches around the city.\n\nThe street runs from Syntagma Square down into the Plaka district, and is often used for the ceremonial route during religious processions tied to the cathedral." },
+    "dionysiou areopagitou": { namedAfter: "Dionysius the Areopagite", text:
+      "Dionysiou Areopagitou is named after Dionysius the Areopagite, a judge on the ancient Athenian council of the Areopagus who, according to the New Testament, converted to Christianity after hearing the apostle Paul speak nearby. He's venerated as a saint in Orthodox Christianity.\n\nThe street runs along the southern slope of the Acropolis and was pedestrianized in the early 2000s ahead of the 2004 Athens Olympics, turning what had been a busy road into one of the city's most popular walking routes past the ancient theatres and the Acropolis Museum." },
+    "voukourestiou": { namedAfter: "Bucharest, Romania", text:
+      "Voukourestiou Street is named after Bucharest (Voukouresti in Greek), the Romanian capital — a naming choice from the 19th century, when Athens' new street grid included several avenues named after other cities and regions with diplomatic or cultural ties to the young Greek state.\n\nIt has since become one of the most upscale shopping streets in Athens, connecting Syntagma Square to Kolonaki, lined with jewelers and designer boutiques rather than reflecting anything about Bucharest itself today." },
+    "filellinon": { namedAfter: "the Philhellenes, foreign supporters of Greek independence", text:
+      "Filellinon means 'of the philhellenes' — the foreign volunteers, donors, and sympathizers, many of them European and American, who supported the Greek War of Independence in the 1820s (Lord Byron being the most famous). Naming a street after them was a direct thank-you gesture as the new Greek state took shape.\n\nRunning from Syntagma Square down toward Plaka, the street sits in the diplomatic heart of the city and is home to Athens' Anglican and other churches built for the foreign community that settled there in the 19th century." },
+    "kolokotroni": { namedAfter: "Theodoros Kolokotronis, war hero", text:
+      "Kolokotroni Street is named after Theodoros Kolokotronis, the most celebrated military leader of the Greek War of Independence, known as the 'Old Man of the Morea'. His equestrian statue stands nearby outside the Old Parliament building.\n\nAs with many central Athens streets, the name reflects the wave of 19th-century street-naming that turned the new capital into a kind of civic memorial to the revolution's leading figures." },
+    "solonos": { namedAfter: "Solon, ancient Athenian lawgiver", text:
+      "Solonos is named after Solon, the ancient Athenian statesman and lawgiver credited with laying the legal groundwork for Athenian democracy in the early 6th century BC, and counted among the Seven Sages of Greece.\n\nThe street runs through the Exarcheia and Kolonaki-adjacent grid, part of a cluster of streets in the area named after major figures of classical antiquity — philosophers, poets, and statesmen — laid out as the city expanded northward in the 19th century." },
+    "ippokratous": { namedAfter: "Hippocrates, physician", text:
+      "Ippokratous Street is named after Hippocrates, the ancient physician from Kos often called the 'father of medicine', whose ethical oath still lends its name to the one doctors take today.\n\nIt runs parallel to Solonos through central Athens, part of the same 19th-century naming pattern that filled the expanding grid north of the old city with the names of classical Greece's most influential figures." },
+    "themistokleous": { namedAfter: "Themistocles, general and statesman", text:
+      "Themistokleous Street is named after Themistocles, the Athenian general and statesman who persuaded the city to build the fleet that defeated the Persians at the Battle of Salamis in 480 BC — arguably the decisive naval victory of the Greco-Persian Wars.\n\nThe street runs through Exarcheia, another entry in the dense cluster of central Athens streets named for classical-era statesmen and thinkers." },
+    "akadimias": { namedAfter: "Plato's Academy", text:
+      "Akadimias Street is named after the Platonic Academy (Akadimia), the ancient school of philosophy founded by Plato around 387 BC on the northwestern outskirts of ancient Athens — the origin of the modern word 'academy'.\n\nThe street runs parallel to Panepistimiou through the university district, and the actual archaeological site of Plato's Academy still survives today, a park in the modern Akadimia Platonos neighborhood a couple of kilometers further west." },
+    "sofokleous": { namedAfter: "Sophocles, tragedian", text:
+      "Sofokleous Street is named after Sophocles, one of the three great tragedians of classical Athens, whose surviving plays include Oedipus Rex and Antigone.\n\nRunning near Omonia Square, it once formed part of the historic banking and commercial district, and its name sits alongside neighboring streets honoring Aristotle and Euripides in the same 19th-century naming scheme." },
+    "aristotelous": { namedAfter: "Aristotle, philosopher", text:
+      "Aristotelous Street is named after Aristotle, the philosopher and polymath who studied under Plato and tutored Alexander the Great, and whose work shaped Western philosophy, science, and logic for centuries after his death.\n\nIt runs through the Omonia district as part of the broader 19th-century pattern of naming central Athens streets after towering figures of classical antiquity." },
+    "euripidou": { namedAfter: "Euripides, tragedian", text:
+      "Euripidou Street is named after Euripides, the third of Athens' great classical tragedians alongside Aeschylus and Sophocles, known for psychologically complex plays like Medea and The Bacchae.\n\nThe street runs through the Psiri and central market district, today known for its mix of hardware shops, spice merchants, and, in recent years, a growing food and nightlife scene." },
+    "menandrou": { namedAfter: "Menander, comic playwright", text:
+      "Menandrou Street is named after Menander, the leading playwright of ancient Athenian New Comedy in the late 4th century BC, whose work (much of it rediscovered only in the 20th century) strongly influenced later Roman and European comic theatre.\n\nIt runs near Omonia Square, continuing the same 19th-century naming pattern that honored classical Greek writers throughout this part of the city grid." },
+    "patission": { namedAfter: "a prominent 19th-century Athenian family", text:
+      "Patission Street's official name is 28is Oktovriou, commemorating October 28, 1940 — the date Greece's dictator Ioannis Metaxas rejected an Italian ultimatum, drawing the country into the Second World War, still celebrated annually as 'Ochi Day'. Almost everyone in Athens, though, still calls it by its older name, Patission.\n\nThat older name is generally understood to come from a prominent 19th-century Athenian family associated with the area, though the exact record is thinner than for the street's more famous, more recent official name. The street runs north from Omonia past the National Archaeological Museum and the old Athens Polytechnic." },
+    "vasilissis sofias": { namedAfter: "Queen Sophia of Greece", text:
+      "Vasilissis Sofias Avenue is named after Queen Sophia of Greece, a Prussian-born princess who married King Constantine I and served as queen consort in the early 20th century.\n\nIt's one of Athens' grandest boulevards, running from Syntagma Square past the National Garden and a dense row of museums, embassies, and the presidential mansion — reflecting the diplomatic and cultural weight the street has carried since it was laid out." },
+    "vasilissis amalias": { namedAfter: "Queen Amalia of Oldenburg", text:
+      "Vasilissis Amalias Avenue is named after Queen Amalia of Oldenburg, who arrived in Greece in 1837 as the young wife of King Otto, the country's first modern monarch, and became a highly visible (and controversial) public figure in her own right.\n\nThe avenue runs along the eastern edge of the National Garden, which Amalia herself commissioned and had planted, linking Syntagma Square down to the Temple of Olympian Zeus and the Panathenaic Stadium." },
+    "tripodon": { namedAfter: "the bronze tripod trophies of ancient drama competitions", text:
+      "Tripodon — 'Street of the Tripods' — is one of the oldest continuously used street names anywhere in the world, referenced by ancient writers including Pausanias. Its name comes from the bronze tripod trophies that winners of Athens' annual dramatic competitions dedicated along the route in antiquity.\n\nThe Monument of Lysicrates, a surviving 4th-century BC choragic monument built to display exactly one of these tripods, still stands on the street today in the Plaka district, making the name a rare direct, physical link between a modern street sign and an ancient Athenian custom." },
+    "kydathinaion": { namedAfter: "the ancient Athenian deme of Kydathenaion", text:
+      "Kydathinaion Street takes its name from Kydathenaion, one of the demes (local districts) of ancient Attica that formed the basic administrative units of Athenian democracy — this particular deme covered roughly the area of today's Plaka.\n\nThe street sits at the heart of Plaka and is lined with tavernas and cafés, its name a reminder that the neighborhood's boundaries trace back, in some form, over two thousand years." },
+    "othonos": { namedAfter: "King Otto (Othon), first King of modern Greece", text:
+      "Othonos Street is named after Otto (Othon in Greek), a Bavarian prince installed as the first King of Greece in 1832 after the country won independence from the Ottoman Empire, at just 17 years old.\n\nOtto's reign was eventually cut short by an 1862 uprising that forced him into exile, but he oversaw Athens' transformation from a small town into a planned European capital — many of the neoclassical streets and squares named in this app date from his era. The street runs just off Syntagma Square, fittingly close to the site of the old Royal Palace, now the Greek Parliament." }
+  };
+
+  async function fetchHistory(streetName, latlng, greekName){
+    renderLoading();
+    const key = streetName.trim().toLowerCase();
+    const results = [];
+
+    if (CURATED[key]) {
+      results.push({ text: CURATED[key].text, namedAfter: CURATED[key].namedAfter, source: 'curated' });
+    }
+
+    // Every remaining source is queried at once, and each is wrapped so one
+    // failing fetch can't take the others down — whatever comes back gets
+    // shown, all of it, rather than stopping at the first hit.
+    const [greekWikiMatches, enWikiMatches] = await Promise.all([
+      lookupGreekWikipedia(greekName || streetName).catch(() => []),
+      lookupWikipedia(streetName, greekName).catch(() => [])
+    ]);
+    results.push(...enWikiMatches);
+    results.push(...greekWikiMatches);
+
+    // English sources always shown first, Greek Wikipedia last.
+    const sourceOrder = { 'curated': 0, 'osm-wikidata': 1, 'osm': 2, 'wikipedia': 3, 'wikipedia-el': 4 };
+    results.sort((a, b) => (sourceOrder[a.source] ?? 5) - (sourceOrder[b.source] ?? 5));
+    
+    cache[streetName] = results;
+    if (currentStreet === streetName) renderHistory(results);
+  }
+
+  async function wikiSummary(title, lang){
+    lang = lang || 'en';
+    const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.extract || data.type === 'disambiguation') return null;
+    // reject list/index articles (e.g. "List of streets in Athens")
+    if (/^list of/i.test(data.title) || (data.description && /\blist\b/i.test(data.description))) return null;
+    return {
+      title: data.title,
+      text: data.extract,
+      source: lang === 'el' ? 'wikipedia-el' : 'wikipedia',
+      url: data.content_urls && data.content_urls.desktop && data.content_urls.desktop.page
+    };
+  }
+
+  const MAX_WIKI_MATCHES = 3;
+
+  // Returns every plausible English Wikipedia article, not just the first —
+  // the direct title guesses plus any distinct search hits, deduplicated.
+  async function lookupWikipedia(streetName, greekName){
+    const found = [];
+    const seen = new Set();
+    const add = (hit) => { if (hit && !seen.has(hit.title)) { seen.add(hit.title); found.push(hit); } };
+
+    for (const guess of [`${streetName} Street`, streetName]) {
+      add(await wikiSummary(guess, 'en'));
+    }
+
+    if (found.length < MAX_WIKI_MATCHES) {
+      // Nominatim sometimes returns the Greek name even with Accept-Language:
+      // en, so search with both spellings to widen the net.
+      const searchTerms = greekName && greekName !== streetName
+        ? [streetName, greekName]
+        : [streetName];
+      for (const term of searchTerms) {
+        if (found.length >= MAX_WIKI_MATCHES) break;
+        const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent('"' + term + '" street Athens Greece')}&format=json&origin=*`;
+        const sres = await fetch(searchUrl);
+        if (!sres.ok) continue;
+        const sdata = await sres.json();
+        const hits = (sdata.query && sdata.query.search) || [];
+        const nameLower = term.toLowerCase();
+        for (const h of hits) {
+          if (found.length >= MAX_WIKI_MATCHES) break;
+          if (!h.title.toLowerCase().includes(nameLower) || seen.has(h.title)) continue;
+          add(await wikiSummary(h.title, 'en'));
+        }
+      }
+    }
+    return found;
+  }
+
+  // Greek street names are almost always in the genitive ("Ερμού" = "of Hermes"),
+  // while Wikipedia article titles are almost always the nominative ("Ερμής").
+  // This is a best-effort, rule-of-thumb declension guesser — not a real
+  // linguistic analyzer — that proposes a few plausible nominative forms so
+  // the direct-title lookup has a real chance of landing on the right article.
+  // It will still miss irregular names; the search fallback below catches
+  // some of those.
+  function greekRootCandidates(name){
+    const clean = name.replace(/^Οδός\s+/i, '').trim();
+    const candidates = new Set([clean]);
+
+    if (/ού$/.test(clean)) {
+      candidates.add(clean.replace(/ού$/, 'ός'));  // e.g. Αδριανού → Αδριανός
+      candidates.add(clean.replace(/ού$/, 'ής'));  // e.g. Ερμού → Ερμής
+      candidates.add(clean.replace(/ού$/, 'ος'));  // e.g. Ιπποκράτους-style edge cases
+    }
+    if (/η$/.test(clean)) {
+      candidates.add(clean.replace(/η$/, 'ης'));   // e.g. Κολοκοτρώνη → Κολοκοτρώνης
+    }
+    if (/ας$/.test(clean)) {
+      candidates.add(clean.replace(/ας$/, 'α'));   // e.g. Σοφίας → Σοφία
+    }
+    if (/ους$/.test(clean)) {
+      candidates.add(clean.replace(/ους$/, 'ης')); // e.g. ancient-style genitives like Θεμιστοκλέους → Θεμιστοκλής (rough)
+    }
+    if (/ων$/.test(clean)) {
+      candidates.add(clean.replace(/ων$/, 'ος'));  // weak guess for some plural genitives
+    }
+
+    return Array.from(candidates);
+  }
+
+  // Greek Wikipedia often has a dedicated article on a street's name origin
+  // even when English Wikipedia has nothing at all. Returns every plausible
+  // match (across all root-form guesses and the search fallback), not just
+  // the first hit.
+  async function lookupGreekWikipedia(greekName){
+    if (!greekName) return [];
+    const roots = greekRootCandidates(greekName);
+    const found = [];
+    const seen = new Set();
+    const add = (hit) => { if (hit && !seen.has(hit.title)) { seen.add(hit.title); found.push(hit); } };
+
+    const directGuesses = [];
+    roots.forEach(r => { directGuesses.push(r, `Οδός ${r}`); });
+    const directResults = await Promise.all(directGuesses.map(g => wikiSummary(g, 'el')));
+    directResults.forEach(add);
+
+    if (found.length < MAX_WIKI_MATCHES) {
+      const searchTerm = roots.length > 1 ? roots[1] : roots[0];
+      const stem = searchTerm.length > 4 ? searchTerm.slice(0, -2) : searchTerm;
+      const searchUrl = `https://el.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm + ' Αθήνα')}&format=json&origin=*`;
+      const sres = await fetch(searchUrl);
+      if (sres.ok) {
+        const sdata = await sres.json();
+        const hits = (sdata.query && sdata.query.search) || [];
+        for (const h of hits) {
+          if (found.length >= MAX_WIKI_MATCHES) break;
+          if (!h.title.includes(stem) || seen.has(h.title)) continue;
+          add(await wikiSummary(h.title, 'el'));
+        }
+      }
+    }
+    return found;
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {
+        // offline shell just won't be available; live app still works fine
+      });
+    });
+  }
+
+  window.__appStarted = true; // sentinel: main script ran to completion
+</script>
+<script>
+  // If the saved file was truncated (large pastes get cut on some Android
+  // clipboards), the main script never finishes — say so instead of failing silently.
+  if (!window.__appStarted) {
+    (window.__errBox || alert)('FILE INCOMPLETE: this copy of index.html was cut off during copying. Re-copy the ENTIRE code from the viewer and save again.');
+  }
+</script>
+</body>
+</html>
+  
